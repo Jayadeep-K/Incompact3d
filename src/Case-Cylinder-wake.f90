@@ -80,6 +80,78 @@ contains
     return
   end subroutine geomcomplex_cyl
 
+! ---------- Added Later ----------
+subroutine geomcomplex_cyl(epsi,nxi,nxf,ny,nyi,nyf,nzi,nzf,dx,yp,remp)
+
+  use param, only : one
+  use ibm_param
+
+  implicit none
+
+  integer                    :: nxi,nxf,ny,nyi,nyf,nzi,nzf
+  real(mytype),dimension(nxi:nxf,nyi:nyf,nzi:nzf) :: epsi
+  real(mytype),dimension(ny) :: yp
+  real(mytype)               :: dx
+  real(mytype)               :: remp
+  integer                    :: i,j,k,n
+  real(mytype)               :: xm,ym,cexx,ceyy,zeromach
+  real(mytype)               :: rib_x_start, rib_x_end
+  real(mytype)               :: rib_height
+  ! real(mytype), parameter    :: rib_width = 0.0666_mytype
+  real(mytype), parameter    :: rib_width = 0.8_mytype
+  real(mytype), parameter    :: rib_gap   = 6.5_mytype
+  integer, parameter         :: num_ribs = 5
+
+  ! Set initial rib base position (cex) and height (cey)
+  ! These should be defined somewhere globally or passed in
+  ! Example fallback:
+
+   zeromach=one
+   do while ((one + zeromach / two) .gt. one)
+      zeromach = zeromach/two
+   end do
+   zeromach = ten*zeromach
+
+   ! Intitialise epsi
+   epsi(:,:,:)=zero
+
+   ! Update center of moving Cylinder
+   !cexx=cex+ubcx*t
+   !ceyy=cey+ubcy*t
+   ! Update center of moving Cylinder
+   if (t.ne.0.) then
+      cexx=cex+ubcx*(t-ifirst*dt)
+      ceyy=cey+ubcy*(t-ifirst*dt)
+   else
+      cexx=cex
+      ceyy=cey
+   endif
+
+  do k = nzi, nzf
+     do j = nyi, nyf
+        ym = yp(j)
+        do i = nxi, nxf
+           xm = real(i - 1, mytype) * dx
+
+           ! Loop over all ribs
+           do n = 0, num_ribs - 1
+              rib_x_start = cexx + n * (rib_width + rib_gap)
+              rib_x_end   = rib_x_start + rib_width
+              rib_height  = ceyy
+
+              if ((xm >= rib_x_start) .and. (xm <= rib_x_end) .and. (ym <= rib_height)) then
+                 epsi(i,j,k) = remp
+              endif
+           end do
+
+        enddo
+     enddo
+  enddo
+
+  return
+end subroutine geomcomplex_cyl
+!------------------------------
+
   !********************************************************************
   subroutine boundary_conditions_cyl (ux,uy,uz,phi)
 

@@ -207,7 +207,7 @@ contains
 
     use decomp_2d_io, only : decomp_2d_start_io
 
-    use param, only : nrhotime, ilmn, iscalar, ioutput, irestart, istret, dy
+    use param, only : nrhotime, ilmn, iscalar, ioutput, irestart, istret, dy, initstat
 
     use variables, only : sx, cifip6, cisip6, ciwip6, cifx6, cisx6, ciwx6
     use variables, only : sy, cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6
@@ -219,6 +219,10 @@ contains
     use var, only : ppi3, dip3, ph3, nzmsize
     use var, only : npress
 
+    ! Added later for visualizing mean quantities --------------------------------------------
+    use var, only : umean, vmean, wmean, pmean, uumean, vvmean, wwmean, uvmean, uwmean, vwmean
+    use var, only : phimean
+    ! ----------------------------------------------------------------------------------------
     use tools, only : rescale_pressure
 
     implicit none
@@ -274,6 +278,20 @@ contains
     call write_field(ux1, ".", "ux", num)
     call write_field(uy1, ".", "uy", num)
     call write_field(uz1, ".", "uz", num)
+
+    !---Added later for visualization of mean values------------------------------------------
+    if (itime > initstat) then
+	    call write_field(umean, ".", "umean", num)
+	    call write_field(uumean, ".", "uumean", num)
+	    call write_field(uvmean, ".", "uvmean", num)
+	    call write_field(uwmean, ".", "uwmean", num)
+	    call write_field(vmean, ".", "vmean", num)
+	    call write_field(vvmean, ".", "vvmean", num)
+	    call write_field(vwmean, ".", "vwmean", num)
+	    call write_field(wmean, ".", "wmean", num)
+	    call write_field(wwmean, ".", "wwmean", num)
+    end if
+    ! ----------------------------------------------------------------------------------------
 
     ! Interpolate pressure
     !WORK Z-PENCILS
