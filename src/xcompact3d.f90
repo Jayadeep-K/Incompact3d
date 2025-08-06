@@ -38,7 +38,7 @@ program xcompact3d
         call read_inflow(ux_inflow,uy_inflow,uz_inflow,itime/ntimesteps)
      endif
 
-     if ((itype.eq.itype_cyl).and.(ifilter.ne.0).and.(ilesmod.ne.0)) then
+     if (((itype == itype_cyl) .or. (itype == itype_channel)).and.(ifilter.ne.0).and.(ilesmod.ne.0)) then
         call filter(C_filter)
         call apply_spatial_filter(ux1,uy1,uz1,phi1)
      endif
