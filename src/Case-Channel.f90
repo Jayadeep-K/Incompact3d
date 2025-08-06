@@ -17,7 +17,7 @@ module channel
   character(len=1),parameter :: NL=char(10) !new line character
 
   PRIVATE ! All functions/subroutines private by default
-  PUBLIC :: init_channel, boundary_conditions_channel, postprocess_channel, &
+  PUBLIC :: init_channel, boundary_conditions_channel, inflow, outflow, postprocess_channel, &
             visu_channel, visu_channel_init, momentum_forcing_channel, &
             geomcomplex_channel
 
@@ -152,64 +152,125 @@ contains
   !############################################################################
   subroutine boundary_conditions_channel (ux,uy,uz,phi)
 
-    use param
-    use var, only : di2
-    use variables
-    use mhd, only : Bm, mhd_equation 
+    USE param
+    USE variables
 
     implicit none
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
 
-    if (.not. cpg ) then ! if not constant pressure gradient
-       if (idir_stream == 1) then
-          call channel_cfr(ux,two/three)
-       else
-          call channel_cfr(uz,two/three)
-       endif
-    end if
+    call inflow (phi)
+    call outflow (ux,uy,uz,phi)
 
-    if (iscalar /= 0) then
-       if (iimplicit <= 0) then
-          if ((nclyS1 == 2).and.(xstart(2) == 1)) then
-             !! Generate a hot patch on bottom boundary
-             phi(:,1,:,:) = one
-          endif
-          if ((nclySn == 2).and.(xend(2) == ny)) THEN
-             phi(:,xsize(2),:,:) = zero
-          endif
-       else
-          !
-          ! Implicit boundary conditions are usually given in input file
-          ! It is possible to modify g_sc here
-          ! It is not possible to modify alpha_sc and beta_sc here
-          !
-          ! Bottom temperature if alpha_sc(:,1)=1 and beta_sc(:,1)=0 (default)
-          !if (nclyS1.eq.2) g_sc(:,1) = one
-          ! Top temperature if alpha_sc(:,2)=1 and beta_sc(:,2)=0 (default)
-          !if (nclySn.eq.2) g_sc(:,2) = zero
-       endif
-    endif
-
-    if( mhd_active .and. iimplicit<=0 .and. mhd_equation=='induction' ) then
-       ! FIXME add a test
-       ! This is valid only when nclyB*1 = 2
-       if (xstart(2) == 1) then
-          Bm(:,1,:,1)  = zero
-          Bm(:,1,:,2)  = zero
-          Bm(:,1,:,3)  = zero
-       endif
-       ! FIXME add a test
-       ! This is valid only when nclyB*n = 2
-       if (xend(2) == ny) then
-          Bm(:,xsize(2),:,1) = zero
-          Bm(:,xsize(2),:,2) = zero
-          Bm(:,xsize(2),:,3) = zero
-       endif
-    endif
-
+    return
   end subroutine boundary_conditions_channel
+
+   !********************************************************************
+  subroutine inflow (phi)
+
+    USE param
+    USE variables
+    USE ibm_param
+
+    implicit none
+
+    integer  :: j,k,is
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
+
+    !call random_number(bxo)
+    !call random_number(byo)
+    !call random_number(bzo)
+    do k=1,xsize(3)
+       do j=1,xsize(2)
+          bxx1(j,k)=u1+bxo(j,k)*inflow_noise
+          bxy1(j,k)=zero+byo(j,k)*inflow_noise
+          bxz1(j,k)=zero+bzo(j,k)*inflow_noise
+       enddo
+    enddo
+
+    if (iscalar.eq.1) then
+       do is=1, numscalar
+          do k=1,xsize(3)
+             do j=1,xsize(2)
+                phi(1,j,k,is)=cp(is)
+             enddo
+          enddo
+       enddo
+    endif
+
+    return
+  end subroutine inflow
+  !********************************************************************
+  subroutine outflow (ux,uy,uz,phi)
+
+    USE param
+    USE variables
+    USE MPI
+    USE ibm_param
+
+    implicit none
+
+    integer :: j,k,code
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
+    real(mytype) :: udx,udy,udz,uddx,uddy,uddz,cx,uxmin,uxmax
+
+    udx=one/dx; udy=one/dy; udz=one/dz; uddx=half/dx; uddy=half/dy; uddz=half/dz
+
+    uxmax=-1609._mytype
+    uxmin=1609._mytype
+    do k=1,xsize(3)
+       do j=1,xsize(2)
+          if (ux(nx-1,j,k).gt.uxmax) uxmax=ux(nx-1,j,k)
+          if (ux(nx-1,j,k).lt.uxmin) uxmin=ux(nx-1,j,k)
+       enddo
+    enddo
+
+    call MPI_ALLREDUCE(MPI_IN_PLACE,uxmax,1,real_type,MPI_MAX,MPI_COMM_WORLD,code)
+    call MPI_ALLREDUCE(MPI_IN_PLACE,uxmin,1,real_type,MPI_MIN,MPI_COMM_WORLD,code)
+
+    if (u1 == zero) then
+       cx=(half*(uxmax+uxmin))*gdt(itr)*udx
+    elseif (u1 == one) then
+       cx=uxmax*gdt(itr)*udx
+    elseif (u1 == two) then
+       cx=u2*gdt(itr)*udx    !works better
+    else
+       cx=(half*(u1+u2))*gdt(itr)*udx
+    endif
+
+    do k=1,xsize(3)
+       do j=1,xsize(2)
+          bxxn(j,k)=ux(nx,j,k)-cx*(ux(nx,j,k)-ux(nx-1,j,k))
+          bxyn(j,k)=uy(nx,j,k)-cx*(uy(nx,j,k)-uy(nx-1,j,k))
+          bxzn(j,k)=uz(nx,j,k)-cx*(uz(nx,j,k)-uz(nx-1,j,k))
+       enddo
+    enddo
+
+    if (iscalar==1) then
+       if (u2==zero) then
+          cx=(half*(uxmax+uxmin))*gdt(itr)*udx
+       elseif (u2==one) then
+          cx=uxmax*gdt(itr)*udx
+       elseif (u2==two) then
+          cx=u2*gdt(itr)*udx    !works better
+       else
+          stop
+       endif
+
+       do k=1,xsize(3)
+          do j=1,xsize(2)
+             phi(nx,j,k,:)=phi(nx,j,k,:)-cx*(phi(nx,j,k,:)-phi(nx-1,j,k,:))
+          enddo
+       enddo
+    endif
+
+    if (nrank==0.and.(mod(itime, ilist) == 0 .or. itime == ifirst .or. itime == ilast)) &
+       write(*,*) "Outflow velocity ux nx=n min max=",real(uxmin,4),real(uxmax,4)
+
+    return
+  end subroutine outflow
   !############################################################################
   !!
   !!  SUBROUTINE: channel_cfr
