@@ -172,6 +172,41 @@ contains
   end subroutine boundary_conditions_channel
 
    !********************************************************************
+!   subroutine inflow (phi)
+
+!     USE param
+!     USE variables
+!     USE ibm_param
+
+!     implicit none
+
+!     integer  :: j,k,is
+!     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
+
+!     !call random_number(bxo)
+!     !call random_number(byo)
+!     !call random_number(bzo)
+!     do k=1,xsize(3)
+!        do j=1,xsize(2)
+!           bxx1(j,k)=u1+bxo(j,k)*inflow_noise
+!           bxy1(j,k)=zero+byo(j,k)*inflow_noise
+!           bxz1(j,k)=zero+bzo(j,k)*inflow_noise
+!        enddo
+!     enddo
+
+!     if (iscalar.eq.1) then
+!        do is=1, numscalar
+!           do k=1,xsize(3)
+!              do j=1,xsize(2)
+!                 phi(1,j,k,is)=cp(is)
+!              enddo
+!           enddo
+!        enddo
+!     endif
+
+!     return
+!   end subroutine inflow
+  !********************************************************************
   subroutine inflow (phi)
 
     USE param
@@ -180,33 +215,75 @@ contains
 
     implicit none
 
-    integer  :: j,k,is
+    integer  :: j,k,is,i
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
+    real(mytype), dimension(xsize(1),xsize(2),xsize(3)):: phi11
+    real(mytype), dimension(ysize(1),ysize(2),ysize(3)):: phi22
+    real(mytype), dimension(xsize(1),xsize(2),xsize(3)):: bx11
+    real(mytype), dimension(ysize(1),ysize(2),ysize(3)):: bx22
 
+    !real(mytype), dimension(ny) :: yp
     !call random_number(bxo)
     !call random_number(byo)
     !call random_number(bzo)
-    do k=1,xsize(3)
-       do j=1,xsize(2)
-          bxx1(j,k)=u1+bxo(j,k)*inflow_noise
-          bxy1(j,k)=zero+byo(j,k)*inflow_noise
-          bxz1(j,k)=zero+bzo(j,k)*inflow_noise
+
+    bx11(1,:,:)=bxx1(:,:)
+    call transpose_x_to_y(bx11,bx22)
+
+    do k=1,ysize(3)
+       do j=2,ysize(2)-1
+          if(j<((ysize(2)+1)/2.0)+1) then
+            bx22(1,j,k)=u1*0+ -272.46 * yp(j)**15 + -505479.42 * yp(j)**14 + 3545778.91 * yp(j)**13 + &
+            -11195702.61 * yp(j)**12 + 21053975.16 * yp(j)**11 + -26267345.91 * yp(j)**10 + &
+               22919784.03 * yp(j)**9 + -14366516.99 * yp(j)**8 + 6542418.01 * yp(j)**7 + &
+               -2164607.39 * yp(j)**6 + 515276.26 * yp(j)**5 + -86538.54 * yp(j)**4 + 9945.39 * yp(j)**3 +&
+               -750.46 * yp(j)**2 + 36.02 * yp(j)**1
+          else 
+            bx22(1,j, k)=bx22(1,ysize(2)-j+1,k)
+          endif
        enddo
     enddo
-
-    if (iscalar.eq.1) then
-       do is=1, numscalar
-          do k=1,xsize(3)
-             do j=1,xsize(2)
-                phi(1,j,k,is)=cp(is)
-             enddo
-          enddo
+    call transpose_y_to_x(bx22,bx11)
+   !print*, "abc"
+    bxx1(:,:)=bx11(1,:,:)
+    do k=1,xsize(3)
+       do j=1,xsize(2)
+           bxy1(j,k)=zero+byo(j,k)*inflow_noise
+           bxz1(j,k)=zero+bzo(j,k)*inflow_noise
        enddo
-    endif
+     enddo
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    phi11(:,:,:)=phi(:,:,:,1)
+    call transpose_x_to_y(phi11,phi22)
 
-    return
+    if (iscalar .eq. 1) then
+      ! Loop through scalar and process each element
+      do is = 1, numscalar
+          ! Loop through xsize(3), xsize(2) - make sure these are correctly initialized
+          do k = 1, ysize(3)
+              do j = 1, ysize(2)
+                  if(j<((ysize(2)+1)/2.0)+1) then
+                   phi22(1,j, k) =  -5802.99 * yp(j)**15 + 9266113.62 * yp(j)**14 +&
+                                      -64706017.63 * yp(j)**13 + 203334861.81 * yp(j)**12 -379356071.37 * yp(j)**11 +&
+                                       467468891.70 * yp(j)**10 -400614370.50 * yp(j)**9 + 244909719.70 * yp(j)**8 + &
+                                      -107833464.25 * yp(j)**7 + 34123294.72 * yp(j)**6 -7664950.84 * yp(j)**5 + &
+                                       1194687.34 * yp(j)**4  -124944.61 * yp(j)**3 + 8413.07 * yp(j)**2 + -359.77 * yp(j)**1 + 23.69
+                  else 
+                     phi22(1, j, k)=phi22(1, ysize(2)-j+1, k)
+                  endif      
+                   !phi22(1,j,k)=0.00             
+                  ! Debugging output to print phi and yp for verification
+                  !print*, 'phi(1,', j, ',', k, ',', is, ') =', phi22(1,j,k), 'yp(', j, ') =', yp(j)           
+              end do
+              !stop
+          end do
+       end do
+    endif
+   call transpose_y_to_x(phi22,phi11)
+   phi(1,:,:,1)=phi11(1,:,:)
+   return
   end subroutine inflow
-  !********************************************************************
+!***************************************************************************
   subroutine outflow (ux,uy,uz,phi)
 
     USE param
