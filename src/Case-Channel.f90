@@ -133,19 +133,24 @@ contains
        enddo
     elseif (iin == 4) then ! SEM
        call sem_init_channel(ux1, uy1, uz1)
+    elseif (iin == 5) then !Setting everything to zero if iin = 5
+       ux1 = zero
+       uy1 = zero
+       uz1 = zero   
     endif
    
     !INIT FOR G AND U=MEAN FLOW + NOISE 
-    do k=1,xsize(3)
-       do j=1,xsize(2)
-          do i=1,xsize(1)
-             ux1(i,j,k)=ux1(i,j,k)+bxx1(j,k)
-             uy1(i,j,k)=uy1(i,j,k)+bxy1(j,k)
-             uz1(i,j,k)=uz1(i,j,k)+bxz1(j,k)
+   if (iin /= 5) then ! Changed later
+      do k=1,xsize(3)
+         do j=1,xsize(2)
+            do i=1,xsize(1)
+               ux1(i,j,k)=ux1(i,j,k)+bxx1(j,k)
+               uy1(i,j,k)=uy1(i,j,k)+bxy1(j,k)
+               uz1(i,j,k)=uz1(i,j,k)+bxz1(j,k)
+            enddo
          enddo
-       enddo
-    enddo
-    return
+      enddo
+   endif
 
   end subroutine init_channel
   !############################################################################
