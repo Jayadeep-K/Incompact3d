@@ -230,20 +230,17 @@ contains
     bx11(1,:,:)=bxx1(:,:)
     call transpose_x_to_y(bx11,bx22)
 
-    do k=1,ysize(3)
-       do j=2,ysize(2)-1
-          if(j<((ysize(2)+1)/2.0)+1) then
-            ! bx22(1,j,k)=u1*0+ -272.46 * yp(j)**15 + -505479.42 * yp(j)**14 + 3545778.91 * yp(j)**13 + &
-            ! -11195702.61 * yp(j)**12 + 21053975.16 * yp(j)**11 + -26267345.91 * yp(j)**10 + &
-            !    22919784.03 * yp(j)**9 + -14366516.99 * yp(j)**8 + 6542418.01 * yp(j)**7 + &
-            !    -2164607.39 * yp(j)**6 + 515276.26 * yp(j)**5 + -86538.54 * yp(j)**4 + 9945.39 * yp(j)**3 +&
-            !    -750.46 * yp(j)**2 + 36.02 * yp(j)**1
-               bx22(1,j,k) = yp(j) * (1.0_mytype - 0.5_mytype * yp(j)) ! Simple Parabolic Profile
-          else 
-            bx22(1,j, k)=bx22(1,ysize(2)-j+1,k)
-          endif
-       enddo
+    do k = 1, ysize(3)
+      do j = 2, ysize(2)-1
+         if (j < ((ysize(2)+1)/2.0) + 1) then
+            ! Parabolic profile, max = 1 at centre y=1
+            bx22(1,j,k) = 1.0_mytype - (yp(j) - 1.0_mytype)**2
+         else 
+            bx22(1,j,k) = bx22(1, ysize(2)-j+1, k)
+         endif
+      enddo
     enddo
+
     call transpose_y_to_x(bx22,bx11)
    !print*, "abc"
     bxx1(:,:)=bx11(1,:,:)
