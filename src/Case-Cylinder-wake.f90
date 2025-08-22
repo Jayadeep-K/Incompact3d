@@ -178,18 +178,42 @@ contains
     implicit none
 
     integer  :: j,k,is
+    real(mytype) :: r
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
 
     !call random_number(bxo)
     !call random_number(byo)
     !call random_number(bzo)
-    do k=1,xsize(3)
-       do j=1,xsize(2)
-          bxx1(j,k)=u1+bxo(j,k)*inflow_noise
-          bxy1(j,k)=zero+byo(j,k)*inflow_noise
-          bxz1(j,k)=zero+bzo(j,k)*inflow_noise
-       enddo
-    enddo
+
+   !----------MODIFIED----------
+   !  do k=1,xsize(3)
+   !     do j=1,xsize(2)
+   !        bxx1(j,k)=u1+bxo(j,k)*inflow_noise
+   !        bxy1(j,k)=zero+byo(j,k)*inflow_noise
+   !        bxz1(j,k)=zero+bzo(j,k)*inflow_noise
+   !     enddo
+   !  enddo
+   !----------------------------
+   do k=1,xsize(3)
+      do j=1,xsize(2)
+         ! Generate uniform random number r in [-1,1]
+         call random_number(r)
+         r = 2.0*r - 1.0
+
+         ! Streamwise component: mean + random fluctuation
+         bxx1(j,k) = u1 * (1.0 + inflow_noise * r)
+
+         ! Cross-stream components: small random perturbations
+         call random_number(r)
+         r = 2.0*r - 1.0
+         bxy1(j,k) = inflow_noise * u1 * r
+
+         call random_number(r)
+         r = 2.0*r - 1.0
+         bxz1(j,k) = inflow_noise * u1 * r
+      enddo
+   enddo
+   !-----------------------------
 
     if (iscalar.eq.1) then
        do is=1, numscalar
